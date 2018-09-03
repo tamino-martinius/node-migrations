@@ -86,11 +86,20 @@ class Migrator {
                     throw `Parent Migration «${key}» missing.`;
                 return process;
             });
-            return this.migrationPromises[migration.key] = new Promise((resolve) => __awaiter(this, void 0, void 0, function* () {
+            return this.migrationPromises[migration.key] = new Promise((resolve, reject) => __awaiter(this, void 0, void 0, function* () {
                 yield this.init();
                 yield Promise.all(parentPromises);
-                yield migration.up();
-                this.migrationStatus[migration.key] = true;
+                try {
+                    yield this.connector.beginTransaction();
+                    yield migration.up();
+                    yield this.connector.insertMigrationKey(migration.key);
+                    yield this.connector.endTransaction();
+                    this.migrationStatus[migration.key] = true;
+                }
+                catch (error) {
+                    yield this.connector.rollbackTransaction();
+                    return reject(error);
+                }
                 resolve();
             }));
         });
@@ -98,9 +107,18 @@ class Migrator {
     down(migration) {
         return __awaiter(this, void 0, void 0, function* () {
             yield this.init();
-            yield migration.up();
-            delete this.migrationPromises[migration.key];
-            delete this.migrationStatus[migration.key];
+            try {
+                yield this.connector.beginTransaction();
+                yield migration.down();
+                yield this.connector.deleteMigrationKey(migration.key);
+                yield this.connector.endTransaction();
+                delete this.migrationPromises[migration.key];
+                delete this.migrationStatus[migration.key];
+            }
+            catch (error) {
+                yield this.connector.rollbackTransaction();
+                throw error;
+            }
         });
     }
 }
