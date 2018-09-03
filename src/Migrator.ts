@@ -92,9 +92,17 @@ export class Migrator {
 
   public async down(migration: Migration): Promise<void> {
     await this.init();
-    await migration.up();
-    delete this.migrationPromises[migration.key];
-    delete this.migrationStatus[migration.key];
+    try {
+      await this.connector.beginTransaction();
+      await migration.down();
+      await this.connector.deleteMigrationKey(migration.key);
+      await this.connector.endTransaction();
+      delete this.migrationPromises[migration.key];
+      delete this.migrationStatus[migration.key];
+    } catch (error) {
+      await this.connector.rollbackTransaction();
+      throw error;
+    }
   }
 }
 
