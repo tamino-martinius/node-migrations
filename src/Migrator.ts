@@ -73,11 +73,19 @@ export class Migrator {
       if (!process) throw `Parent Migration «${key}» missing.`;
       return process;
     });
-    return this.migrationPromises[migration.key] = new Promise(async (resolve) => {
+    return this.migrationPromises[migration.key] = new Promise(async (resolve, reject) => {
       await this.init();
       await Promise.all(parentPromises);
-      await migration.up();
-      this.migrationStatus[migration.key] = true;
+      try {
+        await this.connector.beginTransaction();
+        await migration.up();
+        await this.connector.insertMigrationKey(migration.key);
+        await this.connector.endTransaction();
+        this.migrationStatus[migration.key] = true;
+      } catch (error) {
+        await this.connector.rollbackTransaction();
+        return reject(error);
+      }
       resolve();
     });
   }
