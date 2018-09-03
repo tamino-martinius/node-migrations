@@ -7,6 +7,9 @@ export abstract class Connector {
   public abstract async getMigrationKeys(): Promise<string[]>;
   public abstract async insertMigrationKey(key: string): Promise<void>;
   public abstract async deleteMigrationKey(key: string): Promise<void>;
+  public abstract async beginTransaction(): Promise<void>;
+  public abstract async endTransaction(): Promise<void>;
+  public abstract async rollbackTransaction(): Promise<void>;
 }
 
 export default Connector;
